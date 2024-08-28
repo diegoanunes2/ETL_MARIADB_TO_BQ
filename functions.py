@@ -4,8 +4,11 @@ import pandas_gbq
 import numpy as np
 import sys
 from google.oauth2 import service_account
+from configparser import ConfigParser
+import os
 
 # Funções para conexão ao Banco de Dados
+
 
 def conectar_banco(host, port, user, password, database):
     """
@@ -20,15 +23,16 @@ def conectar_banco(host, port, user, password, database):
     """
     try:
         conn = mariadb.connect(
-               user = user,
-               password = password,
-               host = host,
-               port = port,
-               database = database
+            user=user,
+            password=password,
+            host=host,
+            port=port,
+            database=database
         )
         return conn
     except mariadb.Error as e:
-        print(f"Error connecting to MariaDB Platform: {e}")
+        print(
+            f"(1) Erro ao conectar ao Banco de dados\n > Detalhes do Erro:\n{e}")
         return None
 
 
@@ -43,7 +47,7 @@ def obter_cursor(conn):
         try:
             return conn.cursor()
         except mariadb.Error as e:
-            print(f"Error creating cursor: {e}")
+            print(f"> Erro ao criar o cursor\n> Detalhes do Erro:\n{e}")
     return None
 
 
@@ -60,7 +64,7 @@ def fechar_conexao(conn, cur):
         if conn:
             conn.close()
     except mariadb.Error as e:
-        print(f"Error closing connection: {e}")
+        print(f"(!) Erro ao encerrar a conexão: \n> Detalhes do Erro:\n{e}")
 
 
 def executar_consulta(cur, query):
@@ -76,10 +80,11 @@ def executar_consulta(cur, query):
             cur.execute(query)
             return cur.fetchall()
         except mariadb.Error as e:
-            print(f"Error executing query: {e}")
+            print(f"(!) Erro ao executar a query\n> Detalhes do Erro:\n{e}")
     return None
 
 # Função principal
+
 
 def main(mariadb_user, mariadb_password, mariadb_host, mariadb_port, mariadb_db, query):
     """
@@ -94,6 +99,8 @@ def main(mariadb_user, mariadb_password, mariadb_host, mariadb_port, mariadb_db,
     :return: DataFrame com os resultados da consulta.
     """
     # Conectar ao banco de dados
+    print(
+        f'> Conectando ao Banco de Dados {mariadb_db} no host {mariadb_host}:{mariadb_port}')
     conn = conectar_banco(mariadb_host, mariadb_port,
                           mariadb_user, mariadb_password, mariadb_db)
     if conn is None:
@@ -106,19 +113,25 @@ def main(mariadb_user, mariadb_password, mariadb_host, mariadb_port, mariadb_db,
         sys.exit(1)
 
     # Executar a consulta
+    print('> Solicitando dados ao host...')
     rows = executar_consulta(cur, query)
     if rows is not None:
         # Obter os nomes das colunas
         columns = [desc[0] for desc in cur.description]
 
         # Criar DataFrame com os resultados
+        print('> Criando o Dataframe')
         df = pd.DataFrame(rows, columns=columns)
+        print('> Dataframe criado com sucesso!')
 
     # Fechar cursor e conexão
+    print(f'> Fechando a conexão com o host {mariadb_host}:{mariadb_port}')
     fechar_conexao(conn, cur)
+    print('> Conexão fechada')
     return df
 
 # Função para envio ao BigQuery
+
 
 def send_to_bigquery(destino_bq, dados, cert):
     """
@@ -128,6 +141,7 @@ def send_to_bigquery(destino_bq, dados, cert):
     :param dados: DataFrame a ser enviado.
     :param cert: Caminho para o arquivo de chave do serviço do BigQuery.
     """
+    print('> Enviando dados para o Bigquery')
     if not dados.empty:
         # Remove linhas duplicadas
         dados = dados.drop_duplicates()
@@ -139,11 +153,13 @@ def send_to_bigquery(destino_bq, dados, cert):
                           destination_table=destino_bq,
                           credentials=credentials,
                           if_exists='replace')
-        print(f"Dataframe {destino_bq} enviado ao BigQuery")
+        print(f"\n> Dataframe salvo em {destino_bq} no Google Bigquery")
     else:
-        print(f"Dataframe {destino_bq} vazio, não será enviado ao BigQuery")
+        print(
+            f"(!) Dataframe {destino_bq} vazio, não será enviado ao BigQuery")
 
 # Funções para ajuste de tipos de dados das colunas
+
 
 def adjust_type_string(column, df):
     """
@@ -159,7 +175,8 @@ def adjust_type_string(column, df):
             df[column] = ''
             df[column] = df[column].astype("str", errors='ignore')
     else:
-        print(f"Dataframe {df} Vazio, não será ajustado")
+        print(f"(!) Dataframe {df} Vazio, não há dados a serem ajustados")
+
 
 def adjust_type_integer(column, df):
     """
@@ -177,7 +194,8 @@ def adjust_type_integer(column, df):
             df[column] = np.nan
             df[column] = df[column].astype("int64", errors='ignore')
     else:
-        print(f"Dataframe {df} Vazio, não será ajustado")
+        print(f"(!) Dataframe {df} Vazio, não há dados a serem ajustados")
+
 
 def adjust_type_timestamp_yf(column, df):
     """
@@ -195,7 +213,8 @@ def adjust_type_timestamp_yf(column, df):
             df[column] = pd.to_datetime(
                 df[column], yearfirst=True, errors='coerce')
     else:
-        print(f"Dataframe {df} Vazio, não será ajustado")
+        print(f"(!) Dataframe {df} Vazio, não há dados a serem ajustados")
+
 
 def adjust_type_timestamp_df(column, df):
     """
@@ -213,7 +232,8 @@ def adjust_type_timestamp_df(column, df):
             df[column] = pd.to_datetime(
                 df[column], dayfirst=True, errors='coerce')
     else:
-        print(f"Dataframe {df} Vazio, não será ajustado")
+        print(f"(!) Dataframe {df} Vazio, não há dados a serem ajustados")
+
 
 def adjust_type_float(column, df):
     """
@@ -226,13 +246,15 @@ def adjust_type_float(column, df):
         if column in df.columns:
             # Substituir valores em branco por zero
             df[column] = df[column].fillna(0.0)
-            
+
             # Converter a coluna para tipo numérico
             df[column] = pd.to_numeric(df[column], errors='coerce')
         else:
-            print(f"Coluna '{column}' não encontrada no DataFrame, não será ajustado")
+            print(
+                f"(!) Coluna '{column}' não encontrada no DataFrame, não será ajustado")
     else:
-        print("DataFrame vazio, não será ajustado")
+        print(f"(!) Dataframe {df} Vazio, não há dados a serem ajustados")
+
 
 def adjust_type_boolean(column, df):
     """
@@ -248,4 +270,48 @@ def adjust_type_boolean(column, df):
                 df[column] = df[column].astype(bool)
             except ValueError as e:
                 print(
-                    f"Erro ao converter a coluna '{column}' para booleano
+                    f"(!) Erro ao converter a coluna '{column}' para booleano")
+    else:
+        print(f"(!) Dataframe {df} Vazio, não há dados a serem ajustados")
+
+
+def ler_configuracoes(arquivo_config):
+    """Lê o arquivo de configuração e retorna um dicionário com as configurações.
+
+    Args:
+        arquivo_config (str): Caminho completo para o arquivo de configuração.
+
+    Returns:
+        dict: Dicionário com as configurações, ou None se ocorrer algum erro.
+    """
+
+    if not os.path.exists(arquivo_config):
+        print(
+            f"\n(!) O arquivo de configuração '{arquivo_config}' não foi encontrado.\nCertifique-se que ele se encontra na raiz do diretório desta aplicação")
+        return None
+
+    config = ConfigParser(interpolation=None)
+    config.read(arquivo_config, encoding='utf-8')
+
+    configuracoes = {}
+    try:
+        # Sessão [credentials_maria_db]
+        configuracoes['user_db'] = config.get(
+            'credentials_maria_db', 'user_db')
+        configuracoes['password_db'] = config.get(
+            'credentials_maria_db', 'password_db')
+        configuracoes['host_db'] = config.get(
+            'credentials_maria_db', 'host_db')
+        configuracoes['port_db'] = int(
+            config.get('credentials_maria_db', 'port_db'))
+        configuracoes['db'] = config.get('credentials_maria_db', 'db')
+
+        # Sessão [credentials_google]
+        configuracoes['destino_bq'] = config.get(
+            'credentials_google', 'destino_bq')
+        configuracoes['cert'] = config.get('credentials_google', 'cert')
+    except (configparser.NoSectionError, configparser.NoOptionError) as e:
+        print(f"(!) Erro ao ler o arquivo de configuração: {e}")
+        return None
+
+    return configuracoes
