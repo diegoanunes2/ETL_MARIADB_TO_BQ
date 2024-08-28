@@ -20,11 +20,11 @@ def conectar_banco(host, port, user, password, database):
     """
     try:
         conn = mariadb.connect(
-               user=user,
-               password=password,
-               host=host,
-               port=port,
-               database=database
+               user = user,
+               password = password,
+               host = host,
+               port = port,
+               database = database
         )
         return conn
     except mariadb.Error as e:
