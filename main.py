@@ -52,14 +52,17 @@ try:
     # =============== Ajusta os tipos de dados =============== #
 
     # ===================(String)============================= #
-    try:
+    if ct.string:
+      try:
         # Converte as colunas especificadas para o tipo de dados string
         print('Convertendo os dados no formato String...')
         for coluna in ct.string:
             fn.adjust_type_string(column=coluna, df=dados)
-    except Exception as e:
+      except Exception as e:
         # Exibe uma mensagem de erro se ocorrer uma exceção durante a conversão para String
         print(f'Ocorreu uma exceção ao converter os dados para String: \n {e}')
+    else:
+        print('A lista de colunas a serem convertidas está vazia.')
 
     # ==============(Timestamp Year first)=================== #
     try:
