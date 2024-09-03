@@ -89,7 +89,7 @@ try:
     else:
         print('(!) Não há colunas do tipo Timestamp (DD/MM/AAAA) a serem ajustadas.')
     # ===================(Float)=======================
-    if ct.date_df:
+    if ct.float:
         try:
             # Converte as colunas especificadas para o tipo de dados float
             print('> Convertendo os dados no formato Float...')
